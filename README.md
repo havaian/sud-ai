@@ -1,93 +1,245 @@
-# download
+# Uzbekistan Economic Court Decision Parser
 
+A Python script to download and extract text from economic court decisions in Uzbekistan from public APIs.
 
+## ⚠️ Important Warnings
 
-## Getting started
+- **MASSIVE DATASET**: ~824,000 total documents (9K new + 815K old)
+- **TIME INTENSIVE**: Full download takes weeks, even at aggressive speeds
+- **STORAGE**: Text extraction saves ~95% space vs PDFs, but still substantial
+- **RATE LIMITS**: APIs are public but be respectful - script includes adaptive delays
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 📋 Requirements
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.ytech.space/sud-ai/download.git
-git branch -M main
-git push -uf origin main
+```bash
+pip install requests PyMuPDF
 ```
 
-## Integrate with your tools
+## 🚀 Quick Start
 
-- [ ] [Set up project integrations](https://gitlab.ytech.space/sud-ai/download/-/settings/integrations)
+```python
+from parser import UzbekCourtAPIParser
 
-## Collaborate with your team
+# Initialize parser
+parser = UzbekCourtAPIParser(
+    download_dir="./court_decisions",
+    delay=0.3  # Aggressive mode - 0.3s base delay
+)
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+# Test run - first 5 pages only
+decisions = parser.parse_all_decisions(
+    section="new",
+    end_page=4,  # Pages 0-4 (5 pages)
+    download_pdfs=True,
+    max_workers=6
+)
+```
 
-## Test and Deploy
+## 📊 Data Sections
 
-Use the built-in continuous integration in GitLab.
+- **"new"**: Decisions after 2024 (~9,623 documents, ~326 pages)
+- **"old"**: Decisions before 2024 (~814,585 documents, ~27,153 pages) 
+- **"both"**: All decisions combined
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+## 🔧 Usage Examples
 
-***
+### Resume from Specific Page
+```python
+# Continue from page 254 (0-indexed)
+decisions = parser.parse_all_decisions(
+    section="new",
+    start_page=254,
+    overwrite_files=True
+)
+```
 
-# Editing this README
+### Process Page Range
+```python
+# Process only pages 100-200
+decisions = parser.parse_all_decisions(
+    section="new",
+    start_page=100,
+    end_page=200,
+    download_pdfs=True
+)
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### Metadata Only (Fast)
+```python
+# Skip PDF extraction for quick metadata collection
+decisions = parser.parse_all_decisions(
+    section="new",
+    download_pdfs=False,  # 10x faster
+    max_workers=8
+)
+```
 
-## Suggestions for a good README
+### Full Production Run
+```python
+# Complete dataset (WARNING: takes weeks!)
+decisions = parser.parse_all_decisions(
+    section="both",
+    download_pdfs=True,
+    max_workers=6
+)
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## 📁 Output Structure
 
-## Name
-Choose a self-explaining name for your project.
+```
+court_decisions/
+├── all_decisions.json           # Combined metadata
+├── metadata/                    # Page-by-page metadata
+│   ├── page_new_0000.json
+│   ├── page_new_0001.json
+│   └── page_old_0000.json
+├── extracted_text/              # Text content
+│   ├── 4-2103-2501_3731_abc.txt
+│   └── 4-1301-2403_2274_def.txt
+└── parser.log                   # Execution log
+```
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+## 📋 Metadata Format
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```json
+{
+  "id": "3731_a638e86d",
+  "case_number": "4-2103-2501",
+  "court_name_uz": "Court name in Uzbek",
+  "court_name_ru": "Court name in Russian", 
+  "responsible_judge": "Judge name",
+  "hearing_date": "2024-01-15T10:30:00",
+  "result": "Satisfied",
+  "pdf_url": "https://api.sud.uz/public/onStream/3731_a638e86d",
+  "text_file_path": "extracted_text/4-2103-2501_3731_a638e86d.txt",
+  "text_file_relative_path": "../extracted_text/4-2103-2501_3731_a638e86d.txt",
+  "text_extraction_success": true
+}
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## ⚡ Performance Settings
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+### Conservative (Safe)
+```python
+parser = UzbekCourtAPIParser(delay=1.0)
+decisions = parser.parse_all_decisions(max_workers=2)
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### Aggressive (Fast)
+```python
+parser = UzbekCourtAPIParser(delay=0.3)
+decisions = parser.parse_all_decisions(max_workers=6)
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### Maximum Speed (Risky)
+```python
+parser = UzbekCourtAPIParser(delay=0.1)
+decisions = parser.parse_all_decisions(max_workers=8)
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## 🕒 Time Estimates
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+| Section | Documents | Conservative | Aggressive | Metadata Only |
+|---------|-----------|--------------|------------|---------------|
+| new     | 9,623     | 8-12 hours   | 3-5 hours  | 30-60 min    |
+| old     | 814,585   | 30-45 days   | 15-25 days | 2-4 hours     |
+| both    | 824,208   | 30-45 days   | 15-25 days | 2-4 hours     |
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+## ⚠️ Important Caveats
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+### Rate Limiting
+- Script includes adaptive delays and automatic backoff
+- If you hit rate limits, delays increase automatically
+- Monitor logs for "Rate limit hit" messages
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### Resume Functionality
+- Use `start_page` to continue interrupted downloads
+- Set `overwrite_files=True` to reprocess existing pages
+- Check metadata folder for last completed page
 
-## License
-For open source projects, say how it is licensed.
+### Windows Unicode Issues
+- Script includes fixes for Windows console encoding
+- If you see Unicode errors, try Windows Terminal instead of cmd.exe
+- Files are saved with proper UTF-8 encoding regardless
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+### Storage Requirements
+- **With text extraction**: ~100KB per document average
+- **Metadata only**: ~2KB per document average
+- **Old section**: ~80GB with text, ~1.5GB metadata only
+
+### Network Considerations
+- Stable internet connection required
+- Each document requires 1-2 API calls
+- Failed downloads are retried automatically
+
+## 🔍 Monitoring Progress
+
+```bash
+# Watch log file
+tail -f court_decisions/parser.log
+
+# Check completed pages
+ls court_decisions/metadata/ | wc -l
+
+# Monitor text extraction
+ls court_decisions/extracted_text/ | wc -l
+```
+
+## 🛠️ Troubleshooting
+
+### Script Stops/Crashes
+```python
+# Resume from last completed page
+# Check metadata folder for highest page number
+decisions = parser.parse_all_decisions(
+    section="new",
+    start_page=LAST_COMPLETED_PAGE + 1,
+    overwrite_files=False
+)
+```
+
+### Rate Limit Errors
+- Increase `delay` parameter
+- Reduce `max_workers`
+- Script auto-adjusts, but manual adjustment may help
+
+### Unicode Errors (Windows)
+- Use Windows Terminal or PowerShell
+- Or set: `set PYTHONIOENCODING=utf-8`
+
+### Low Disk Space
+- Use `download_pdfs=False` for metadata only
+- Text extraction saves 95% space vs keeping PDFs
+
+## 📜 Legal & Ethical Notes
+
+- APIs are publicly available
+- Be respectful of server resources
+- Data is public court information
+- Consider legal implications in your jurisdiction
+- No warranty provided - use at your own risk
+
+## 🔧 Advanced Configuration
+
+```python
+# Custom timeouts and retries
+parser.session.timeout = 60
+parser.max_delay = 5.0
+parser.min_delay = 0.2
+
+# Custom file paths
+parser = UzbekCourtAPIParser(
+    download_dir="/custom/path",
+    delay=0.3
+)
+```
+
+## 📞 Support
+
+This is an unofficial tool. For issues:
+1. Check the logs in `parser.log`
+2. Try reducing speed (increase delays)
+3. Ensure stable internet connection
+4. Use resume functionality for interrupted downloads
+
+Remember: This tool processes public data, but always respect server resources and local laws.
